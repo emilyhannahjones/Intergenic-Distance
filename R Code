@@ -1,1 +1,548 @@
+#Reading in the files.
 
+f.annulatumfpa8.pathogenic <- read.csv('F._annulatum_Fp_A8OP.pathogenic.txt', header = TRUE)
+f.avenaceum.pathogenic <- read.csv('F._avenaceumOP.pathogenic.txt', header = TRUE)
+f.mangiferae.pathogenic <- read.csv('F._mangiferaeOP.pathogenic.txt', header = TRUE)
+f.odoratissimum.pathogenic <- read.csv('F._odoratissimumOP.pathogenic.txt', header = TRUE)
+f.phyllophilum.pathogenic <- read.csv('F._phyllophilumOP.pathogenic.txt', header = TRUE)
+f.annulatumrh5.endophytic <- read.csv('F._annulatum_RH5OP.endophytic.txt', header = TRUE)
+f.coicis.endophytic <- read.csv('F._coicisOP.endophytic.txt', header = TRUE)
+f.gaditjirri.endophytic <- read.csv('F._gaditjirriOP.endophytic.txt', header = TRUE)
+f.proliferatumrh7.endophytic <- read.csv('F._proliferatum_RH7OP.endophytic.txt', header = TRUE)
+f.sp.rh6.endophytic <- read.csv('F._sp._FIESC_RH6OP.endophytic.txt', header = TRUE)
+###########################
+
+#Combining individual data files into one file. Lifestyle and species columns are added additionally. This data file is then edited to only contain intergenic distances >= or <= 100,000 base pairs.
+
+library(dplyr)
+
+file_names <- c("F._annulatum_Fp_A8OP.pathogenic.txt", "F._avenaceumOP.pathogenic.txt", "F._mangiferaeOP.pathogenic.txt", "F._odoratissimumOP.pathogenic.txt", "F._phyllophilumOP.pathogenic.txt", "F._annulatum_RH5OP.endophytic.txt", "F._coicisOP.endophytic.txt", "F._gaditjirriOP.endophytic.txt", "F._proliferatum_RH7OP.endophytic.txt", "F._sp._FIESC_RH6OP.endophytic.txt")
+
+combined_data <- data.frame()  
+
+for (file_name in file_names) {
+  data <- read.csv(file_name, header = TRUE) 
+  species <- gsub("^F\\._(.*)_OP\\..*?\\.txt$", "F. \\1", file_name)
+  species <- gsub("OP\\..*?\\.txt$", "", species)
+  species <- gsub("_", " ", species)
+  lifestyle <- ifelse(grepl("\\.pathogenic", file_name), "Pathogenic", "Endophytic")  
+  data <- data %>% mutate(species = species, lifestyle = lifestyle)  
+  combined_data <- rbind(combined_data, data)  # combine data into one data frame
+}
+
+grouped_data <- combined_data %>% group_by(species, lifestyle)  
+grouped_data$species <- factor(grouped_data$species, levels=unique(grouped_data$species))
+
+no_neg_intd <- subset(grouped_data, intd >= 0 & intd <= 100000)
+
+
+###########################
+
+#Partitioning individual data files.
+
+pf.annulatumfpa8.p<- subset(f.annulatumfpa8.pathogenic, intd >= 0 & intd <= 100000)
+pf.avenaceum.p<- subset(f.avenaceum.pathogenic, intd >= 0 & intd <= 100000)
+pf.mangiferae.p<- subset(f.mangiferae.pathogenic, intd >= 0 & intd <= 100000)
+pf.odoratissimum.p<- subset(f.odoratissimum.pathogenic, intd >= 0 & intd <= 100000)
+pf.phyllophilum.p<- subset(f.phyllophilum.pathogenic, intd >= 0 & intd <= 100000)
+pf.annulatumrh5.e<- subset(f.annulatumrh5.endophytic, intd >= 0 & intd <= 100000)
+pf.coicis.e<- subset(f.coicis.endophytic, intd >= 0 & intd <= 100000)
+pf.gaditjirri.e<- subset(f.gaditjirri.endophytic, intd >= 0 & intd <= 100000)
+pf.proliferatumrh7.e<- subset(f.proliferatumrh7.endophytic, intd >= 0 & intd <= 100000)
+pf.sp.rh6.e<- subset(f.sp.rh6.endophytic, intd >= 0 & intd <= 100000)
+###########################
+
+
+#Statistics.
+
+
+#Normality Testing.
+###########################
+library(nortest)
+
+#The Anderson-Darling normality test and Q-Q plots for endophytic species. 
+
+#Raw data.
+ad.test(combined_data$intd[combined_data$lifestyle == "Endophytic"])
+#A = 7274.2, p-value < 2.2e-16
+qqnorm(combined_data$intd[combined_data$lifestyle == "Endophytic"])
+qqline(combined_data$intd[combined_data$lifestyle == "Endophytic"])
+
+#Partitioned data.
+ad.test(no_neg_intd$intd[no_neg_intd$lifestyle == "Endophytic"])
+#A = 6825.6, p-value < 2.2e-16
+qqnorm(no_neg_intd$intd[no_neg_intd$lifestyle == "Endophytic"])
+qqline(no_neg_intd$intd[no_neg_intd$lifestyle == "Endophytic"])
+
+#Transformed, partitioned data.
+endophytic_transformed <- log10(no_neg_intd$intd[no_neg_intd$lifestyle == "Endophytic"])
+ad.test(endophytic_transformed)
+#A = 95.522, p-value < 2.2e-16
+qqnorm(endophytic_transformed)
+qqline(endophytic_transformed)
+
+#The Anderson-Darling normality test and Q-Q plots for pathogenic species. 
+
+#Raw data.
+ad.test(combined_data$intd[combined_data$lifestyle == "Pathogenic"])
+#A = 6654.6, p-value < 2.2e-16
+qqnorm(combined_data$intd[combined_data$lifestyle == "Pathogenic"])
+qqline(combined_data$intd[combined_data$lifestyle == "Pathogenic"])
+
+#Partitioned data.
+ad.test(no_neg_intd$intd[no_neg_intd$lifestyle == "Pathogenic"])
+#A = 6670, p-value < 2.2e-16
+qqnorm(no_neg_intd$intd[no_neg_intd$lifestyle == "Pathogenic"])
+qqline(no_neg_intd$intd[no_neg_intd$lifestyle == "Pathogenic"])
+
+#Transformed, partitioned data.
+pathogenic_transformed <- log10(no_neg_intd$intd[no_neg_intd$lifestyle == "Pathogenic"])
+ad.test(pathogenic_transformed)
+#A = 152.59, p-value < 2.2e-16
+qqnorm(pathogenic_transformed)
+qqline(pathogenic_transformed)
+
+#The Anderson-Darling normality test and Q-Q plots for individual species. 
+par(mfrow=c(2,5))
+
+
+attach(pf.annulatumfpa8.p)
+ad.test(intd) 
+#A = 1284, p-value < 2.2e-16. Not normal.
+# Create QQ plot for intd
+qqnorm(intd, main = 'F. annulatum Fp A8')
+qqline(intd)
+
+detach(pf.annulatumfpa8.p)
+
+
+attach(pf.annulatumrh5.e)
+ad.test(intd)
+#A = 1354.1, p-value < 2.2e-16
+# Create QQ plot for intd
+qqnorm(intd, main = 'F. annulatum RH5')
+qqline(intd)
+
+detach(pf.annulatumrh5.e)
+
+
+attach(pf.avenaceum.p)
+ad.test(intd)
+#A = 1145.8, p-value < 2.2e-16
+# Create QQ plot for intd
+qqnorm(intd, main = 'F. avenaceum')
+qqline(intd)
+
+detach(pf.avenaceum.p)
+
+
+attach(pf.coicis.e)
+ad.test(intd)
+#A = 1067.5, p-value < 2.2e-16
+# Create QQ plot for intd
+qqnorm(intd, main = 'F. coicis')
+qqline(intd)
+
+detach(pf.coicis.e)
+
+
+attach(pf.gaditjirri.e)
+ad.test(intd)
+#A = 1046.7, p-value < 2.2e-16
+# Create QQ plot for intd
+qqnorm(intd, main = 'F. gaditjirri')
+qqline(intd)
+
+detach(pf.gaditjirri.e)
+
+
+attach(pf.mangiferae.p)
+ad.test(intd)
+#A = 1624.3, p-value < 2.2e-16
+# Create QQ plot for intd
+qqnorm(intd, main = 'F. mangiferae')
+qqline(intd)
+
+detach(pf.mangiferae.p)
+
+
+attach(pf.odoratissimum.p)
+ad.test(intd)
+#A = 1418, p-value < 2.2e-16
+# Create QQ plot for intd
+qqnorm(intd, main = 'F. odoratissimum')
+qqline(intd)
+
+detach(pf.odoratissimum.p)
+
+
+attach(pf.phyllophilum.p)
+ad.test(intd)
+#A = 1079.3, p-value < 2.2e-16
+# Create QQ plot for intd
+qqnorm(intd, main = 'F. phyllophilum')
+qqline(intd)
+
+detach(pf.phyllophilum.p)
+
+
+attach(pf.proliferatumrh7.e)
+ad.test(intd)
+#A = 1745.3, p-value < 2.2e-16
+# Create QQ plot for intd
+qqnorm(intd, main = 'F. proliferatum RH7')
+qqline(intd)
+
+detach(pf.proliferatumrh7.e)
+
+
+attach(pf.sp.rh6.e)
+ad.test(intd)
+#A = 1437.3, p-value < 2.2e-16
+# Create QQ plot for intd
+qqnorm(intd, main = 'F. sp. FIESC. 6')
+qqline(intd)
+
+detach(pf.sp.rh6.e)
+
+###########################
+
+#Boxplots for species' intergenic distances.
+
+#Raw data.
+boxplot(
+  f.annulatumfpa8.pathogenic$intd, 
+  f.avenaceum.pathogenic$intd, 
+  f.mangiferae.pathogenic$intd, 
+  f.odoratissimum.pathogenic$intd, 
+  f.phyllophilum.pathogenic$intd, 
+  f.annulatumrh5.endophytic$intd, 
+  f.coicis.endophytic$intd, 
+  f.gaditjirri.endophytic$intd, 
+  f.proliferatumrh7.endophytic$intd, 
+  f.sp.rh6.endophytic$intd, 
+  names = c("f.annulatumfpa8.p", "f.avenaceum.p", "f.mangiferae.p", "f.odoratissimum.p", "f.phyllophilum.p", "f.annulatumrh5.e", "f.coicis.e", "f.gaditjirri.e", "f.proliferatumrh7.e", "f.sp.rh6.e"),
+  main = "Boxplots of intergenic distance, by species",
+  xlab = "Fusarium Species",
+  ylab = "intergenic distance",
+  cex.main = 1.5,
+  cex.lab = 1.2,
+  cex.axis = 0.8,
+  boxcol = c(rep("darkblue", 5), rep("darkred", 5)),
+  border = c("black", "black", "black", "black", "black", "black", "black", "black", "black", "black"),
+  #outpch = 16,
+  outcol = c(rep("blue", 5), rep("red", 5))
+)
+abline(h=25000, lty=2)
+
+#Partitioned data.
+
+boxplot(
+  pf.annulatumfpa8.p$intd, 
+  pf.avenaceum.p$intd, 
+  pf.mangiferae.p$intd, 
+  pf.odoratissimum.p$intd, 
+  pf.phyllophilum.p$intd, 
+  pf.annulatumrh5.e$intd, 
+  pf.coicis.e$intd, 
+  pf.gaditjirri.e$intd, 
+  pf.proliferatumrh7.e$intd, 
+  pf.sp.rh6.e$intd, 
+  names = c("f.annulatumfpa8.p", "f.avenaceum.p", "f.mangiferae.p", "f.odoratissimum.p", "f.phyllophilum.p", "f.annulatumrh5.e", "f.coicis.e", "f.gaditjirri.e", "f.proliferatumrh7.e", "f.sp.rh6.e"),
+  main = "Boxplots of intergenic distance, by species",
+  xlab = "Fusarium Species",
+  ylab = "intergenic distance",
+  cex.main = 1.5,
+  cex.lab = 1.2,
+  cex.axis = 0.8,
+  boxcol = c(rep("darkblue", 5), rep("darkred", 5)),
+  border = c("black", "black", "black", "black", "black", "black", "black", "black", "black", "black"),
+  #outpch = 16,
+  outcol = c(rep("blue", 5), rep("red", 5))
+)
+abline(h=25000, lty=2)
+
+#Transformed, partitioned data.
+par(mar=c(5, 6, 4, 4))
+boxplot(
+  log(pf.annulatumfpa8.p$intd), 
+  log(pf.avenaceum.p$intd), 
+  log(pf.mangiferae.p$intd), 
+  log(pf.odoratissimum.p$intd), 
+  log(pf.phyllophilum.p$intd), 
+  log(pf.annulatumrh5.e$intd), 
+  log(pf.coicis.e$intd), 
+  log(pf.gaditjirri.e$intd), 
+  log(pf.proliferatumrh7.e$intd), 
+  log(pf.sp.rh6.e$intd), 
+  names = expression(italic("F. annulatum Fp A8"), italic("F. avenaceum"), italic("F. mangiferae"), italic("F. odoratissimum"), italic("F. phyllophilum"), italic("F. annulatum RH5"), italic("F. coicis"), italic("F. gaditjirri"), italic("F. proliferatum RH7"), italic("F. sp. FIESC RH6")),
+  #names = c("F. annulatum Fp A8", "F. avenaceum", "F. mangiferae", "F. odoratissimum", "F. phyllophilum", "F. annulatum RH5", "F. coicis", "F. gaditjirri", "F. proliferatum RH7", "F. sp. FIESC RH6"),
+  main = "Boxplots of Intergenic Distance: A Comparison of Fusarium Species",
+  xlab = "Fusarium Species",
+  ylab = "Log Intergenic Distance (bp)",
+  cex.main = 1.5,
+  cex.lab = 1.2,
+  cex.axis = 0.8,
+  boxcol = c(rep("darkorange", 5), rep("blue", 5)),
+  border = c("black", "black", "black", "black", "black", "black", "black", "black", "black", "black"),
+  outcol = c(rep("orange", 5), rep("blue", 5)),
+  boxfill = c(rep("orange", 5, alpha=0.7), rep("lightblue", 5)),
+  medcol = "black"
+)
+
+###########################
+
+#Testing homoscedasticity.
+
+library('car')
+
+leveneTest(intd ~ species, data = combined_data)
+leveneTest(intd ~ lifestyle, data = combined_data)
+#< 2.2e-16
+###########################
+
+#Kruskal-Wallis Test.
+
+#Raw data. 
+
+# Kruskal-Wallis test by species.
+kruskal.test(intd ~ species, data = combined_data)
+#Kruskal-Wallis chi-squared = 461.71, df = 9, p-value < 2.2e-16.
+
+# Kruskal-Wallis test by lifestyle.
+kruskal.test(intd ~ lifestyle, data = combined_data)
+#Kruskal-Wallis chi-squared = 118.57, df = 1, p-value < 2.2e-.
+
+
+#Partitioned data.
+
+# Kruskal-Wallis test by species.
+kruskal.test(intd ~ species, data = no_neg_intd)
+#Kruskal-Wallis chi-squared = 485.54, df = 9, p-value < 2.2e-16.
+
+# Kruskal-Wallis test by lifestyle.
+kruskal.test(intd ~ lifestyle, data = no_neg_intd)
+#Kruskal-Wallis chi-squared = 126.94, df = 1, p-value < 2.2e-16.
+
+#Partitioned, transformed data.
+
+# Kruskal-Wallis test by species.
+logintd <- log10(no_neg_intd$intd)
+kruskal.test(logintd ~ species, data = no_neg_intd)
+#Kruskal-Wallis chi-squared = 485.54, df = 9, p-value < 2.2e-16.
+
+# Kruskal-Wallis test by lifestyle.
+kruskal.test(logintd ~ lifestyle, data = no_neg_intd)
+#Kruskal-Wallis chi-squared = 126.94, df = 1, p-value < 2.2e-16.
+
+# Kruskal-Wallis test by direction
+kruskal.test(logintd ~ direction, data = no_neg_intd)
+#Kruskal-Wallis chi-squared = 22871, df = 2, p-value < 2.2e-16
+
+###########################
+
+#Post-Hoc Testing - Dunn's Test.
+
+library(dunn.test)
+
+#Species Pairwise Comparison.
+
+#Partitioned data.
+dunn.test(no_neg_intd$intd, no_neg_intd$species, method = "bonferroni", label=TRUE, 
+          wrap=FALSE, table=FALSE, list=TRUE)
+
+#Transformed, partitioned data.
+
+no_neg_intd$log_intd <- log(no_neg_intd$intd)
+dunn.test(no_neg_intd$log_intd, no_neg_intd$species, method = "bonferroni", label=TRUE, 
+          wrap=FALSE, table=TRUE, list=TRUE)
+
+
+###########################
+
+#Mann-Whitney U-test
+
+#Transformed data - lifestyle.
+
+wilcox.test(intd ~ lifestyle, data = no_neg_intd)
+#W = 2329187632, p-value < 2.2e-16
+
+#Transformed, partitioned data - lifestyle.
+wilcox.test(logintd ~ lifestyle, data = no_neg_intd)
+#W = 2325516068, p-value < 2.2e-16
+###########################
+
+#Intergenic Distance Median. 
+
+#Raw data - lifestyle. 
+
+median_intd_by_lifestyle <- aggregate(intd ~ lifestyle, data = combined_data, median)
+median_intd_by_lifestyle
+# Endophytic  881
+# Pathogenic  834
+
+#Partitioned Data - lifestyle.
+
+median_intd_by_lifestyle <- aggregate(intd ~ lifestyle, data = no_neg_intd, median)
+median_intd_by_lifestyle
+# Endophytic  883
+# Pathogenic  835
+
+#Partitioned, transformed data - lifestyle.
+median_intd_by_lifestyle <- aggregate(log(intd) ~ lifestyle, data = no_neg_intd, median)
+median_intd_by_lifestyle
+#E = 6.783325
+#P = 6.727432
+
+#Partitioned data - species.
+median_intd_by_species <- aggregate(intd ~ species, data = no_neg_intd, median)
+median_intd_by_species
+
+
+###########################
+
+
+#Data Visualisation. 
+
+
+#Ridge line plots 
+
+library('viridis')
+library(ggplot2)
+library(ggridges)
+library(RColorBrewer)
+
+#Raw data - lifestyle.
+
+ggplot(no_neg_intd, aes(x = intd, y = lifestyle, fill = lifestyle)) +
+  geom_density_ridges(scale = 1.5, alpha = 0.7, color = "grey", quantile_lines = TRUE, quantiles = c(0.25, 0.5, 0.75)) +
+  scale_fill_manual(values = viridis(2, alpha = 1, begin = 0.4, end = 0.9, direction = 1)) +
+  scale_x_continuous(limits = c(-7500, 15000)) +
+  theme_ridges() +
+  labs(x = "Intergenic Distance", y = "Lifestyle", title = "Distribution of intd by lifestyle") +
+  guides(color = "none", fill = "none") + 
+  theme_ridges(font_family = "Myriad Pro SemiCondensed")
+
+
+#Raw data - species.
+
+ggplot(no_neg_intd, aes(x = intd, y = reorder(species, lifestyle), fill = species)) +
+  geom_density_ridges(scale = 1.5, alpha = 0.7, color = "grey40") +
+  scale_fill_manual(values = c(rep("orange", 5), (rep("blue",5)))) +
+  scale_x_continuous(limits = c(-2500, 8000)) +
+  theme_ridges() +
+  labs(x = "Intergenic Distance", y = "Fusarium Species", title = "Distribution of intd by species") +
+  guides(color = "none", fill = "none") + 
+  theme_ridges(font_family = "Myriad Pro SemiCondensed") +
+  theme(
+    axis.text.y = element_text(face = "italic")
+  )
+
+
+#Transformed data - species.
+
+ggplot(no_neg_intd, aes(x = log(intd), y = species, fill = lifestyle)) +
+  geom_density_ridges(scale = 1.5, alpha = 0.7, color = "grey40") +
+  scale_fill_manual(values = c("Endophytic" = "lightblue", "Pathogenic" = "orange")) +
+  theme_ridges() +
+  labs(x = "Log Intergenic Distance (bp)", y = "Fusarium Species", title = "Intergenic Distance Distribution for Fusarium Species") +
+  guides(color = "none", fill = guide_legend(title="Lifestyle", override.aes=list(alpha=1))) + 
+  theme_ridges(font_family = "Myriad Pro SemiCondensed") +
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    axis.title.y = element_text(margin = margin(r = 30)),
+    plot.title = element_text(margin = margin(b = 15)),
+    legend.position = c(0.925, 1.05),
+    legend.justification = c(1, 1),
+    legend.box.just = "right"
+  )
+
+###########################
+
+#Violin Plots.
+
+#Partitioned data - species.
+
+ggplot(no_neg_intd, aes(x=species, y=intd, fill=species)) +
+  geom_violin(trim=FALSE, color="gray30", alpha=0.7) +
+  geom_boxplot(width=0.1, fill="white", color="gray30") +
+  stat_summary(fun.y=median, geom="point", size=3, color="red") +
+  labs(title="Intergenic Distance by Species", x="Species", y="Intergenic Distance") +
+  coord_cartesian(ylim=c(0, 6000)) +
+  expand_limits(y=0) +
+  theme(plot.margin=unit(c(1,1,1.5,1), "cm")) +
+  scale_fill_manual(values = c(rep("orange", 5), (rep("lightblue",5)))) +
+  guides(color = "none", fill = "none") + 
+  theme(panel.background = element_rect(fill = "white")) +
+  geom_hline(yintercept = 850, linetype=2)
+
+
+#Transformed, partitioned data - species.
+
+ggplot(no_neg_intd, aes(x=species, y=log(intd), fill=species)) +
+  geom_violin(trim=FALSE, color="gray30", alpha=0.7) +
+  geom_boxplot(width=0.1, fill="white", color="gray30") +
+  stat_summary(fun.y=median, geom="point", size=3, color="red") +
+  labs(title="Violin Plots of Intergenic Distance: A Comparison of Fusarium Species", x= "Fusarium Species", y="Log Intergenic Distance (bp)") +
+  scale_fill_manual(values = c(rep("orange", 5), (rep("lightblue",5)))) +
+  guides(color = "none", fill = "none") + 
+  theme(panel.background = element_rect(fill = "white"), 
+        axis.text.x = element_text(face = "italic"),
+        axis.title.x = element_text(margin = margin(t = 30), size = 14),
+        axis.title.y = element_text(margin = margin(r = 30), size = 14),
+        plot.margin = unit(c(3, 3, 3, 3), "lines"),
+        plot.title = element_text(size = 16, face = "bold", margin = margin(t=-20))) 
+  #geom_hline(yintercept = 6.75, linetype=2)
+
+
+#Transformed, partitioned data - species. Including gene pair direction. 
+
+ggplot(no_neg_intd, aes(x = species, y = log(intd), fill = direction)) +
+  geom_violin(trim = FALSE, color = "gray30", alpha = 0.3, position = "identity") +
+  geom_boxplot(width = 0.1, fill = "white", color = "gray30", position = position_dodge(0.75)) +
+  labs(title = "Violin Plots of Intergenic Distance: A Comparison of Fusarium Species",
+       x = "Fusarium Species", y = "Log Intergenic Distance (bp)", fill = "Direction") +
+  scale_fill_manual(values = c("dodgerblue", "orange", "green")) +
+  #guides(color = "none", fill = "none") + 
+  theme(panel.background = element_rect(fill = "white"), 
+        axis.text.x = element_text(face = "italic"),
+        axis.title.x = element_text(margin = margin(t = 30), size = 14),
+        axis.title.y = element_text(margin = margin(r = 30), size = 14),
+        plot.margin = unit(c(3, 3, 3, 3), "lines"),
+        plot.title = element_text(size = 16, face = "bold", margin = margin(t=-20))) 
+
+
+#Transformed, partitioned data - lifestyle.
+
+ggplot(no_neg_intd, aes(x=lifestyle, y=log(intd), fill=lifestyle)) +
+  geom_violin(trim=FALSE, color="gray30", alpha=0.7) +
+  geom_boxplot(width=0.1, fill="white", color="gray30") +
+  stat_summary(fun.y=median, geom="point", size=3, color="red") +
+  labs(title="Violin Plots of Intergenic Distance: A Comparison of Lifestyles", x="Lifestyle", y="Log Intergenic Distance (bp)") +
+  scale_fill_manual(values = c( "lightblue", "orange")) +
+  guides(color = "none", fill = "none") + 
+  theme(panel.background = element_rect(fill = "white"), 
+        axis.text.x = element_text(face = "italic"),
+        axis.title.x = element_text(margin = margin(t = 30), size = 14),
+        axis.title.y = element_text(margin = margin(r = 30), size = 14),
+        plot.margin = unit(c(3, 3, 3, 3), "lines"),
+        plot.title = element_text(size = 16, face = "bold", margin = margin(t=-20))) 
+  #geom_hline(yintercept = 6.75, linetype=2)
+
+
+#Transformed, partitioned data - lifestyle. Including gene pair direction.
+
+ggplot(no_neg_intd, aes(x = lifestyle, y = log(intd), fill = direction)) +
+  geom_violin(trim=FALSE, color="gray30", alpha=0.3, position = "identity") +
+  geom_boxplot(width = 0.1, fill = "white", color = "gray30", position = position_dodge(0.75)) +
+  labs(title="Violin Plots of Intergenic Distance: A Comparison of Intergenic Distance Direction", x= "Direction of Intergenic Distance", y="Log Intergenic Distance (bp)") +
+  scale_fill_manual(values = c("dodgerblue", "orange", "green")) +
+  labs(x = "Lifestyle", y = "Log Intergenic Distance (bp)", fill = "Direction") +
+  theme(panel.background = element_rect(fill = "white"), 
+        axis.text.x = element_text(face = "italic"),
+        axis.title.x = element_text(margin = margin(t = 30), size = 14),
+        axis.title.y = element_text(margin = margin(r = 30), size = 14),
+        plot.margin = unit(c(3, 3, 3, 3), "lines"),
+        plot.title = element_text(size = 16, face = "bold", margin = margin(t=-20))) 
+
+###########################
