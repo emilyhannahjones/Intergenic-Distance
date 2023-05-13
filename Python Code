@@ -1,1 +1,213 @@
+import numpy as np
+import sys
+import matplotlib.pyplot as plt
+from matplotlib import colors
+import re
+
+c_codons = ['CAA', 'CAC', 'CAG', 'CAT', 'CCA', 'CCC', 'CCG', 'CCT', 'CGA', 'CGC', 'CGG', 'CGT', 'CTA', 'CTC', 'CTG', 'CTT']
+
+#This function takes a sequence and returns a count of 'c_codons'. 
+def calc_c_codons(sequence):
+	result=[]
+	c_codons_in_seq=[]
+	for i, position in enumerate(sequence):
+		if i%3 and i+3 <= len(sequence) and position == 'C':
+			c_codons_in_seq.append(sequence[i:i+3])
+	for codon in c_codons:
+		result.append(c_codons_in_seq.count(codon))
+	return(result)
+gene_data_list=[]
+intergenic_list=[]
+gene_count = 0
+
+
+#This function compares gene 1 and gene 2 name to ensure they are on the same contig.
+def compare_genes(gene1, gene2):
+	regex = "(?:lcl\|)([^\.\|]*)(?:.*)" 
+	match1 = re.search(regex, gene1).group(1)
+	match2 = re.search(regex, gene2).group(1)
+	return match1 == match2
+
+#This function defines gene pair direction, calculates intergenic distance, and envokes the 'compare_genes' function. Approproate gene pairs are appended to the 'gene_list'.
+def intergenic_info(gene_list):
+	result = []
+	for gene_index, gene_info in enumerate(gene_list):
+		if gene_index > 0:
+			if gene_info[2] == 'forward' and gene_list[gene_index-1][2] == 'forward':
+				type = 'unidirectional'
+			elif gene_info[2] == 'forward' and gene_list[gene_index-1][2] == 'reverse':
+				type = 'divergent'
+			elif gene_info[2] == 'reverse' and gene_list[gene_index-1][2] == 'reverse':
+				type = 'unidirectional'
+			elif gene_info[2] == 'reverse' and gene_list[gene_index-1][2] == 'forward':
+				type = 'convergent'
+			distance = gene_info[3]-gene_list[gene_index-1][4]
+			gene1=gene_list[gene_index-1][0]
+			gene2=gene_info[0]
+			if not compare_genes(gene1, gene2):
+				continue
+			result.append([gene1,gene2,distance,type])
+	return(result)
+
+#Because of various possible input patterns for start and stop positions, this function tries various arguments until an appropriate start and stop position is identified.
+#The function is envoked in try_one, try_two, etc., where different arguments are passed into the 'get_start_and_stop' function, e.g., ['n(',2,'..'] and ['..',2,'))'], until a start and stop position which doesn't cause a value error is identified.
+def get_start_and_stop(argTuple):
+	start_arg = argTuple[0]
+	stop_arg = argTuple[1]
+	start_arg_1 = start_arg[0]
+	start_arg_1_plus = start_arg[1]
+	start_arg_2 = start_arg[2]
+	stop_arg_1 = stop_arg[0]
+	stop_arg_1_plus = stop_arg[1]
+	stop_arg_2 = stop_arg[2]
+	start = int(val[(val.find(start_arg_1))+start_arg_1_plus:val.find(start_arg_2)])
+	stop = int(val[(val.rfind(stop_arg_1))+stop_arg_1_plus:val.find(stop_arg_2)])
+	return (start, stop)
+
+#This is for 'complement', 'reverse', 'join' sequences.
+def try_first_sequences():
+	return try_one()
+
+def try_one():
+	try:
+		return get_start_and_stop((['n(',2,'..'],['..',2,'))']))
+	except ValueError:
+		return try_two()
+
+def try_two():
+	try:
+		return get_start_and_stop((['n(',2,','],['..',2,'))']))
+	except:
+		return try_three()
+
+
+def try_three():
+	try:
+		return get_start_and_stop((['n(',2,'..'],[',',1,'))']))
+	except:
+		return try_four()
+
+
+def try_four():
+	return get_start_and_stop((['n(',2,','],[',',1,'))']))
+
+#This is for 'forward', 'join' sequences.
+def try_second_sequences():
+	return try_five()
+
+def try_five():
+	try:
+		return get_start_and_stop((['(',1,'..'],['..',2,')']))
+	except ValueError:
+		return try_six()
+
+def try_six():
+	try:
+		return get_start_and_stop((['(',1,','],['..',2,')']))
+	except ValueError:
+		return try_seven()
+
+
+def try_seven():
+	try:
+		return get_start_and_stop((['(',1,'..'],[',',1,')']))
+	except ValueError:
+		return try_eight()
+
+
+def try_eight():
+	return get_start_and_stop((['(',1,','],[',',1,')']))
+
+
+#Here the file is open and read. Whether the protein is hypothetical or not is identified. Start and stop positions are identified, but if they cannot be found the 'get_start_and_stop' function is envoked.
+#Coding sequence information lines are identified using the '>' sign.
+
+with open('', 'r') as infile:
+	for line in infile:
+		if line[0] == '>':
+			seq_info = line.split()
+			CDS_ID = seq_info[0][1:]
+			for val in seq_info[1:]:
+				if 'protein=' in val:
+					if 'hypothetical' in val:
+						Hypothetical_Type = 'hypothetical'
+					else:
+						Hypothetical_Type = 'not_hypothetical'
+				if 'location=' in val:
+					if 'complement' in val:
+						orientation = 'reverse'
+						if 'join' in val:
+							if 'n(<' in val and '..>' in val:
+								start = int(val[(val.find('n(<'))+3:val.find('..')])
+								stop = int(val[(val.rfind('..>'))+3:val.find('))')])
+							elif 'n(<' in val: 
+								start = int(val[(val.find('n(<'))+3:val.find('..')])
+								stop = int(val[(val.rfind('..'))+2:val.find('))')])
+							elif '..>' in val: 
+								start = int(val[(val.find('n('))+2:val.find('..')])
+								stop = int(val[(val.rfind('..>'))+3:val.find('))')])
+							else: 
+								start, stop = try_first_sequences()     
+						else:
+							if '(<' in val and '..>' in val:
+								start = int(val[(val.find('(<'))+2:val.find('..')])
+								stop = int(val[(val.rfind('..>'))+3:val.find(')')])
+							elif '(<' in val:
+								start = int(val[(val.find('(<'))+2:val.find('..')])
+								stop = int(val[(val.rfind('..'))+2:val.find(')')])
+							elif '..>' in val:
+								start = int(val[(val.find('('))+1:val.find('..')])
+								stop = int(val[(val.rfind('..>'))+3:val.find(')')])
+							else:
+								start = int(val[(val.find('('))+1:val.find('..')])
+								stop = int(val[(val.rfind('..'))+2:val.find(')')])
+					else:
+						orientation = 'forward'
+						if 'join' in val:
+							if 'n(<' in val and '..>' in val:
+								start = int(val[(val.find('n(<'))+3:val.find('..')])
+								stop = int(val[(val.rfind('..>'))+3:val.find(')')])
+							elif 'n(<' in val:
+								start = int(val[(val.find('n(<'))+3:val.find('..')])
+								stop = int(val[(val.rfind('..'))+2:val.find(')')])
+							elif '..>' in val:
+								start = int(val[(val.find('('))+1:val.find('..')])
+								stop = int(val[(val.rfind('..>'))+3:val.find(')')])
+							else:
+								start, stop = try_second_sequences()
+						else:
+							if '=<' in val and '..>' in val:
+								start = int(val[(val.find('=<'))+2:val.find('..')])
+								stop = int(val[(val.rfind('..>'))+3:val.find(']')])
+							elif '=<' in val:
+								start = int(val[(val.find('=<'))+2:val.find('..')])
+								stop = int(val[(val.rfind('..'))+2:val.find(']')])
+							elif '..>' in val:
+								start = int(val[(val.find('='))+1:val.find('..')])
+								stop = int(val[(val.rfind('..>'))+3:val.find(']')])
+							else:
+								start = int(val[(val.find('='))+1:val.find('..')])
+								stop = int(val[(val.rfind('..'))+2:val.find(']')])
+			if gene_count == 0:
+				seq=''
+			else:
+				gene_data_list[gene_count-1].append(calc_c_codons(seq))
+				seq=''
+			gene_data = [CDS_ID, Hypothetical_Type, orientation, start, stop]
+			gene_data_list.append(gene_data)
+			gene_count +=1
+		else:
+			seq = seq + line[:-1]
+	gene_data_list[gene_count-1].append(calc_c_codons(seq))
+#The gene data is then passed into the intergenic_list function.
+intergenic_list = intergenic_info(gene_data_list)
+
+#This is where an output file is produced, containing gene pair names, intergenic distance, and direction.
+file = open('', 'w')
+header = "gene1,gene2,intd,direction\n"
+file.write(header)
+for row in intergenic_list:
+    row_str = ','.join(str(elem) for elem in row)
+    file.write(row_str + '\n')
+file.close()
 
